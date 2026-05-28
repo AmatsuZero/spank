@@ -5,7 +5,6 @@ package spank
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"embed"
 	"encoding/json"
@@ -20,10 +19,6 @@ import (
 	"time"
 
 	"github.com/charmbracelet/fang"
-	"github.com/gopxl/beep/v2"
-	"github.com/gopxl/beep/v2/effects"
-	"github.com/gopxl/beep/v2/mp3"
-	"github.com/gopxl/beep/v2/speaker"
 	"github.com/spf13/cobra"
 	"github.com/taigrr/apple-silicon-accelerometer/detector"
 	"github.com/taigrr/spank/pkg/app"
@@ -47,6 +42,7 @@ var (
 	paused        bool
 	pausedMu      sync.RWMutex
 	speedRatio    float64
+	audioPlayer   = platformmacos.NewAudioPlayer()
 )
 
 type playMode int
@@ -284,7 +280,6 @@ func listenForSlaps(ctx context.Context, pack *soundPack, accelSource *platformm
 	tracker := newSlapTracker(pack, tuning.Cooldown)
 	slapSession := app.NewSession(tracker)
 	gateEngine := core.NewDetectionEngine(tuning.MinAmplitude, tuning.Cooldown)
-	speakerInit := false
 	det := detector.New()
 	var lastAccelTotal uint64
 
@@ -368,77 +363,25 @@ func listenForSlaps(ctx context.Context, pack *soundPack, accelSource *platformm
 		} else {
 			fmt.Printf("slap #%d [%s amp=%.5fg] -> %s\n", result.SlapNumber, result.Severity, result.Amplitude, result.File)
 		}
-		go playAudio(pack, result.File, result.Amplitude, &speakerInit)
+		go playAudio(pack, result.File, result.Amplitude)
 	}
 }
-
-var speakerMu sync.Mutex
 
 func amplitudeToVolume(amplitude float64) float64 {
 	return core.AmplitudeToVolume(amplitude)
 }
 
-func playAudio(pack *soundPack, path string, amplitude float64, speakerInit *bool) {
-	var streamer beep.StreamSeekCloser
-	var format beep.Format
-
-	if pack.custom {
-		file, err := os.Open(path)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "spank: open %s: %v\n", path, err)
-			return
-		}
-		defer file.Close()
-		streamer, format, err = mp3.Decode(file)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "spank: decode %s: %v\n", path, err)
-			return
-		}
-	} else {
-		data, err := pack.fs.ReadFile(path)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "spank: read %s: %v\n", path, err)
-			return
-		}
-		streamer, format, err = mp3.Decode(io.NopCloser(bytes.NewReader(data)))
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "spank: decode %s: %v\n", path, err)
-			return
-		}
+func playAudio(pack *soundPack, path string, amplitude float64) {
+	err := audioPlayer.Play(platformmacos.AudioSource{
+		Custom: pack.custom,
+		FS:     pack.fs,
+	}, path, amplitude, platformmacos.PlaybackOptions{
+		VolumeScaling: volumeScaling,
+		SpeedRatio:    speedRatio,
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "spank: %v\n", err)
 	}
-	defer streamer.Close()
-
-	speakerMu.Lock()
-	if !*speakerInit {
-		speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
-		*speakerInit = true
-	}
-	speakerMu.Unlock()
-
-	// Optionally scale volume based on slap amplitude
-	var source beep.Streamer = streamer
-	if volumeScaling {
-		source = &effects.Volume{
-			Streamer: streamer,
-			Base:     2,
-			Volume:   amplitudeToVolume(amplitude),
-			Silent:   false,
-		}
-	}
-
-	// Apply speed change via resampling trick:
-	// Claiming the audio is at rate*speed and resampling back to rate
-	// makes the speaker consume samples faster/slower.
-	if speedRatio != 1.0 && speedRatio > 0 {
-		fakeRate := beep.SampleRate(int(float64(format.SampleRate) * speedRatio))
-		source = beep.Resample(4, fakeRate, format.SampleRate, source)
-	}
-
-	done := make(chan bool)
-	speaker.Play(beep.Seq(source, beep.Callback(func() {
-		done <- true
-	})))
-	<-done
 }
 
 // stdinCommand represents a command received via stdin
