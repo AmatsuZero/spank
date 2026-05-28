@@ -11,8 +11,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math"
-	"math/rand"
 	"os"
 	"os/signal"
 	"sort"
@@ -28,46 +26,28 @@ import (
 	"github.com/gopxl/beep/v2/speaker"
 	"github.com/spf13/cobra"
 	"github.com/taigrr/apple-silicon-accelerometer/detector"
-	"github.com/taigrr/apple-silicon-accelerometer/sensor"
-	"github.com/taigrr/apple-silicon-accelerometer/shm"
+	"github.com/taigrr/spank/pkg/app"
+	"github.com/taigrr/spank/pkg/core"
+	platformmacos "github.com/taigrr/spank/pkg/platform/macos"
 )
 
 var version = "dev"
 
-//go:embed audio/pain/*.mp3
-var painAudio embed.FS
-
-//go:embed audio/sexy/*.mp3
-var sexyAudio embed.FS
-
-//go:embed audio/halo/*.mp3
-var haloAudio embed.FS
-
-//go:embed audio/lizard/*.mp3
-var lizardAudio embed.FS
-
 var (
-	sexyMode     bool
-	haloMode     bool
-	lizardMode   bool
-	customPath   string
-	customFiles  []string
-	fastMode     bool
-	minAmplitude float64
-	cooldownMs   int
-	stdioMode      bool
-	volumeScaling  bool
-	paused         bool
-	pausedMu       sync.RWMutex
-	speedRatio     float64
+	sexyMode      bool
+	haloMode      bool
+	lizardMode    bool
+	customPath    string
+	customFiles   []string
+	fastMode      bool
+	minAmplitude  float64
+	cooldownMs    int
+	stdioMode     bool
+	volumeScaling bool
+	paused        bool
+	pausedMu      sync.RWMutex
+	speedRatio    float64
 )
-
-// sensorReady is closed once shared memory is created and the sensor
-// worker is about to enter the CFRunLoop.
-var sensorReady = make(chan struct{})
-
-// sensorErr receives any error from the sensor worker.
-var sensorErr = make(chan error, 1)
 
 type playMode int
 
@@ -77,56 +57,27 @@ const (
 )
 
 const (
-	// decayHalfLife is how many seconds of inactivity before intensity
-	// halves. Controls how fast escalation fades.
-	decayHalfLife = 30.0
-
 	// defaultMinAmplitude is the default detection threshold.
-	defaultMinAmplitude = 0.05
+	defaultMinAmplitude = core.DefaultMinAmplitude
 
 	// defaultCooldownMs is the default cooldown between audio responses.
-	defaultCooldownMs = 750
+	defaultCooldownMs = int(core.DefaultCooldown / time.Millisecond)
 
 	// defaultSpeedRatio is the default playback speed (1.0 = normal).
 	defaultSpeedRatio = 1.0
-
-	// defaultSensorPollInterval is how often we check for new accelerometer data.
-	defaultSensorPollInterval = 10 * time.Millisecond
-
-	// defaultMaxSampleBatch caps the number of accelerometer samples processed
-	// per tick to avoid falling behind.
-	defaultMaxSampleBatch = 200
 
 	// sensorStartupDelay gives the sensor time to start producing data.
 	sensorStartupDelay = 100 * time.Millisecond
 )
 
-type runtimeTuning struct {
-	minAmplitude float64
-	cooldown     time.Duration
-	pollInterval time.Duration
-	maxBatch     int
-}
+type runtimeTuning = core.RuntimeTuning
 
 func defaultTuning() runtimeTuning {
-	return runtimeTuning{
-		minAmplitude: defaultMinAmplitude,
-		cooldown:     time.Duration(defaultCooldownMs) * time.Millisecond,
-		pollInterval: defaultSensorPollInterval,
-		maxBatch:     defaultMaxSampleBatch,
-	}
+	return core.DefaultTuning()
 }
 
 func applyFastOverlay(base runtimeTuning) runtimeTuning {
-	base.pollInterval = 4 * time.Millisecond
-	base.cooldown = 350 * time.Millisecond
-	if base.minAmplitude > 0.18 {
-		base.minAmplitude = 0.18
-	}
-	if base.maxBatch < 320 {
-		base.maxBatch = 320
-	}
-	return base
+	return core.ApplyFastOverlay(base)
 }
 
 type soundPack struct {
@@ -170,55 +121,27 @@ func (sp *soundPack) loadFiles() error {
 }
 
 type slapTracker struct {
-	mu       sync.Mutex
-	score    float64
-	lastTime time.Time
-	total    int
-	halfLife float64 // seconds
-	scale    float64 // controls the escalation curve shape
-	pack     *soundPack
+	inner *core.SlapTracker
 }
 
 func newSlapTracker(pack *soundPack, cooldown time.Duration) *slapTracker {
-	// scale maps the exponential curve so that sustained max-rate
-	// slapping (one per cooldown) reaches the final file. At steady
-	// state the score converges to ssMax; we set scale so that score
-	// maps to the last index.
-	cooldownSec := cooldown.Seconds()
-	ssMax := 1.0 / (1.0 - math.Pow(0.5, cooldownSec/decayHalfLife))
-	scale := (ssMax - 1) / math.Log(float64(len(pack.files)+1))
-	return &slapTracker{
-		halfLife: decayHalfLife,
-		scale:    scale,
-		pack:     pack,
-	}
+	return &slapTracker{inner: core.NewSlapTracker(pack.files, core.PlayMode(pack.mode), cooldown)}
+}
+
+func (st *slapTracker) Record(now time.Time) (int, float64) {
+	return st.inner.Record(now)
+}
+
+func (st *slapTracker) GetFile(score float64) string {
+	return st.inner.GetFile(score)
 }
 
 func (st *slapTracker) record(now time.Time) (int, float64) {
-	st.mu.Lock()
-	defer st.mu.Unlock()
-
-	if !st.lastTime.IsZero() {
-		elapsed := now.Sub(st.lastTime).Seconds()
-		st.score *= math.Pow(0.5, elapsed/st.halfLife)
-	}
-	st.score += 1.0
-	st.lastTime = now
-	st.total++
-	return st.total, st.score
+	return st.Record(now)
 }
 
 func (st *slapTracker) getFile(score float64) string {
-	if st.pack.mode == modeRandom {
-		return st.pack.files[rand.Intn(len(st.pack.files))]
-	}
-
-	// Escalation: 1-exp(-x) curve maps score to file index.
-	// At sustained max slap rate, score reaches ssMax which maps
-	// to the final file.
-	maxIdx := len(st.pack.files) - 1
-	idx := min(int(float64(len(st.pack.files)) * (1.0 - math.Exp(-(score-1)/st.scale))), maxIdx)
-	return st.pack.files[idx]
+	return st.GetFile(score)
 }
 
 func main() {
@@ -245,10 +168,10 @@ within a minute, the more intense the sounds become.`,
 			}
 			// Explicit flags override fast preset defaults
 			if cmd.Flags().Changed("min-amplitude") {
-				tuning.minAmplitude = minAmplitude
+				tuning.MinAmplitude = minAmplitude
 			}
 			if cmd.Flags().Changed("cooldown") {
-				tuning.cooldown = time.Duration(cooldownMs) * time.Millisecond
+				tuning.Cooldown = time.Duration(cooldownMs) * time.Millisecond
 			}
 			return run(cmd.Context(), tuning)
 		},
@@ -294,12 +217,21 @@ func run(ctx context.Context, tuning runtimeTuning) error {
 		return fmt.Errorf("--sexy, --halo, --lizard, and --custom/--custom-files are mutually exclusive; pick one")
 	}
 
-	if tuning.minAmplitude < 0 || tuning.minAmplitude > 1 {
+	if !builtInAssetsEnabled && (sexyMode || haloMode || lizardMode || (customPath == "" && len(customFiles) == 0)) {
+		return fmt.Errorf("this build does not include embedded audio (lite); use --custom or --custom-files")
+	}
+
+	if tuning.MinAmplitude < 0 || tuning.MinAmplitude > 1 {
 		return fmt.Errorf("--min-amplitude must be between 0.0 and 1.0")
 	}
-	if tuning.cooldown <= 0 {
+	if tuning.Cooldown <= 0 {
 		return fmt.Errorf("--cooldown must be greater than 0")
 	}
+
+	// Sync runtime globals so fast preset / explicit overrides are reflected
+	// in the live detection loop and stdio settings state.
+	minAmplitude = tuning.MinAmplitude
+	cooldownMs = int(tuning.Cooldown / time.Millisecond)
 
 	var pack *soundPack
 	switch {
@@ -336,49 +268,25 @@ func run(ctx context.Context, tuning runtimeTuning) error {
 	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	// Create shared memory for accelerometer data.
-	accelRing, err := shm.CreateRing(shm.NameAccel)
+	accelSource, err := platformmacos.NewAccelSource()
 	if err != nil {
-		return fmt.Errorf("creating accel shm: %w", err)
+		return err
 	}
-	defer accelRing.Close()
-	defer accelRing.Unlink()
-
-	// Start the sensor worker in a background goroutine.
-	// sensor.Run() needs runtime.LockOSThread for CFRunLoop, which it
-	// handles internally. We launch detection on the current goroutine.
-	go func() {
-		close(sensorReady)
-		if err := sensor.Run(sensor.Config{
-			AccelRing: accelRing,
-			Restarts:  0,
-		}); err != nil {
-			sensorErr <- err
-		}
-	}()
-
-	// Wait for sensor to be ready.
-	select {
-	case <-sensorReady:
-	case err := <-sensorErr:
-		return fmt.Errorf("sensor worker failed: %w", err)
-	case <-ctx.Done():
-		return nil
-	}
+	defer accelSource.Close()
 
 	// Give the sensor a moment to start producing data.
 	time.Sleep(sensorStartupDelay)
 
-	return listenForSlaps(ctx, pack, accelRing, tuning)
+	return listenForSlaps(ctx, pack, accelSource, tuning)
 }
 
-func listenForSlaps(ctx context.Context, pack *soundPack, accelRing *shm.RingBuffer, tuning runtimeTuning) error {
-	tracker := newSlapTracker(pack, tuning.cooldown)
+func listenForSlaps(ctx context.Context, pack *soundPack, accelSource *platformmacos.AccelSource, tuning runtimeTuning) error {
+	tracker := newSlapTracker(pack, tuning.Cooldown)
+	slapSession := app.NewSession(tracker)
+	gateEngine := core.NewDetectionEngine(tuning.MinAmplitude, tuning.Cooldown)
 	speakerInit := false
 	det := detector.New()
 	var lastAccelTotal uint64
-	var lastEventTime time.Time
-	var lastYell time.Time
 
 	// Start stdin command reader if in JSON mode
 	if stdioMode {
@@ -394,7 +302,7 @@ func listenForSlaps(ctx context.Context, pack *soundPack, accelRing *shm.RingBuf
 		fmt.Println(`{"status":"ready"}`)
 	}
 
-	ticker := time.NewTicker(tuning.pollInterval)
+	ticker := time.NewTicker(tuning.PollInterval)
 	defer ticker.Stop()
 
 	for {
@@ -402,7 +310,7 @@ func listenForSlaps(ctx context.Context, pack *soundPack, accelRing *shm.RingBuf
 		case <-ctx.Done():
 			fmt.Println("\nbye!")
 			return nil
-		case err := <-sensorErr:
+		case err := <-accelSource.Errors():
 			return fmt.Errorf("sensor worker failed: %w", err)
 		case <-ticker.C:
 		}
@@ -418,10 +326,10 @@ func listenForSlaps(ctx context.Context, pack *soundPack, accelRing *shm.RingBuf
 		now := time.Now()
 		tNow := float64(now.UnixNano()) / 1e9
 
-		samples, newTotal := accelRing.ReadNew(lastAccelTotal, shm.AccelScale)
+		samples, newTotal := accelSource.ReadNew(lastAccelTotal)
 		lastAccelTotal = newTotal
-		if len(samples) > tuning.maxBatch {
-			samples = samples[len(samples)-tuning.maxBatch:]
+		if len(samples) > tuning.MaxBatch {
+			samples = samples[len(samples)-tuning.MaxBatch:]
 		}
 
 		nSamples := len(samples)
@@ -435,72 +343,39 @@ func listenForSlaps(ctx context.Context, pack *soundPack, accelRing *shm.RingBuf
 		}
 
 		ev := det.Events[len(det.Events)-1]
-		if ev.Time.Equal(lastEventTime) {
-			continue
+		gateEngine.UpdateConfig(minAmplitude, time.Duration(cooldownMs)*time.Millisecond)
+		gateEvent := core.DetectionEvent{
+			Time:      ev.Time,
+			Amplitude: ev.Amplitude,
+			Severity:  string(ev.Severity),
 		}
-		lastEventTime = ev.Time
-
-		if time.Since(lastYell) <= time.Duration(cooldownMs)*time.Millisecond {
-			continue
-		}
-		if ev.Amplitude < minAmplitude {
+		if !gateEngine.Accept(gateEvent, now) {
 			continue
 		}
 
-		lastYell = now
-		num, score := tracker.record(now)
-		file := tracker.getFile(score)
+		result := slapSession.OnSlap(now, ev.Amplitude, string(ev.Severity))
 		if stdioMode {
 			event := map[string]interface{}{
-				"timestamp":  now.Format(time.RFC3339Nano),
-				"slapNumber": num,
-				"amplitude":  ev.Amplitude,
-				"severity":   string(ev.Severity),
-				"file":       file,
+				"timestamp":  result.Timestamp.Format(time.RFC3339Nano),
+				"slapNumber": result.SlapNumber,
+				"amplitude":  result.Amplitude,
+				"severity":   result.Severity,
+				"file":       result.File,
 			}
 			if data, err := json.Marshal(event); err == nil {
 				fmt.Println(string(data))
 			}
 		} else {
-			fmt.Printf("slap #%d [%s amp=%.5fg] -> %s\n", num, ev.Severity, ev.Amplitude, file)
+			fmt.Printf("slap #%d [%s amp=%.5fg] -> %s\n", result.SlapNumber, result.Severity, result.Amplitude, result.File)
 		}
-		go playAudio(pack, file, ev.Amplitude, &speakerInit)
+		go playAudio(pack, result.File, result.Amplitude, &speakerInit)
 	}
 }
 
 var speakerMu sync.Mutex
 
-// amplitudeToVolume maps a detected amplitude to a beep/effects.Volume
-// level. Amplitude typically ranges from ~0.05 (light tap) to ~1.0+
-// (hard slap). The mapping uses a logarithmic curve so that light taps
-// are noticeably quieter and hard hits play near full volume.
-//
-// Returns a value in the range [-3.0, 0.0] for use with effects.Volume
-// (base 2): -3.0 is ~1/8 volume, 0.0 is full volume.
 func amplitudeToVolume(amplitude float64) float64 {
-	const (
-		minAmp   = 0.05  // softest detectable
-		maxAmp   = 0.80  // treat anything above this as max
-		minVol   = -3.0  // quietest playback (1/8 volume with base 2)
-		maxVol   = 0.0   // full volume
-	)
-
-	// Clamp
-	if amplitude <= minAmp {
-		return minVol
-	}
-	if amplitude >= maxAmp {
-		return maxVol
-	}
-
-	// Normalize to [0, 1]
-	t := (amplitude - minAmp) / (maxAmp - minAmp)
-
-	// Log curve for more natural volume scaling
-	// log(1 + t*99) / log(100) maps [0,1] -> [0,1] with a log curve
-	t = math.Log(1+t*99) / math.Log(100)
-
-	return minVol + t*(maxVol-minVol)
+	return core.AmplitudeToVolume(amplitude)
 }
 
 func playAudio(pack *soundPack, path string, amplitude float64, speakerInit *bool) {
