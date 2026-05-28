@@ -2,8 +2,8 @@ GO ?= go
 GOMOBILE ?= gomobile
 DIST_DIR ?= dist
 
-# CLI entry package. Keep as '.' until cmd/spank is wired.
-CLI_PKG ?= .
+# CLI entry package.
+CLI_PKG ?= ./cmd/spank
 
 .PHONY: build-cli build-cli-lite build-mac-dylib build-mac-static build-ios-sdk build-android-sdk build-sdk
 

@@ -1,6 +1,6 @@
 //go:build with_assets || !lite
 
-package main
+package spank
 
 import "embed"
 

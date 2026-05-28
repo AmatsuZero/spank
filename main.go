@@ -1,7 +1,7 @@
 // spank detects slaps/hits on the laptop and plays audio responses.
 // It reads the Apple Silicon accelerometer directly via IOKit HID —
 // no separate sensor daemon required. Needs sudo.
-package main
+package spank
 
 import (
 	"bufio"
@@ -144,7 +144,7 @@ func (st *slapTracker) getFile(score float64) string {
 	return st.GetFile(score)
 }
 
-func main() {
+func Main() {
 	cmd := &cobra.Command{
 		Use:   "spank",
 		Short: "Yells 'ow!' when you slap the laptop",

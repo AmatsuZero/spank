@@ -1,4 +1,4 @@
-package main
+package spank
 
 import (
 	"bytes"
