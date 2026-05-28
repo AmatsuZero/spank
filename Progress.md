@@ -75,5 +75,6 @@ gomobile bind -tags lite -target=android ./bindings/mobile
 - 回归验证通过：`go test ./...`、CLI 双模式构建与 bindings 构建均通过。
 
 ## Next Step
-1. 整理并提交当前这一批改动（建议拆为 #23、#24、#25、#26 四个提交）。
+1. 当前改造任务已全部完成（Task Board 全部勾选）。
 2. 如需发布，推送后观察 `CI`、`Release CLI`、`Release SDK` 三条工作流结果。
+3. 如需继续演进，可选后续项：补充 iOS/Android 集成示例工程与端到端运行文档。
