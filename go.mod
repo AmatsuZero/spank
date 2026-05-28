@@ -1,4 +1,4 @@
-module github.com/taigrr/spank
+module github.com/AmatsuZero/spank
 
 go 1.26
 

@@ -5,7 +5,7 @@ package main
 */
 import "C"
 
-import "github.com/taigrr/spank/pkg/core"
+import "github.com/AmatsuZero/spank/pkg/core"
 
 // SpankCoreDefaultMinAmplitude returns the default detection threshold.
 //

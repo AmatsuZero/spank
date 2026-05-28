@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/taigrr/spank/pkg/core"
+	"github.com/AmatsuZero/spank/pkg/core"
 )
 
 // DefaultMinAmplitude returns the default detection threshold.

@@ -15,7 +15,7 @@ import (
 	"github.com/gopxl/beep/v2/effects"
 	"github.com/gopxl/beep/v2/mp3"
 	"github.com/gopxl/beep/v2/speaker"
-	"github.com/taigrr/spank/pkg/core"
+	"github.com/AmatsuZero/spank/pkg/core"
 )
 
 type AudioSource struct {

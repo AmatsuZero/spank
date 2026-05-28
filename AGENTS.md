@@ -28,7 +28,7 @@ sudo ./spank --custom /path/to/mp3s  # custom audio directory
 ### Install
 
 ```bash
-go install github.com/taigrr/spank@latest
+go install github.com/AmatsuZero/spank@latest
 ```
 
 ### Release

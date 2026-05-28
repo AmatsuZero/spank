@@ -1,6 +1,6 @@
 package main
 
-import "github.com/taigrr/spank"
+import "github.com/AmatsuZero/spank"
 
 func main() {
 	spank.Main()

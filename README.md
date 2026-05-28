@@ -24,12 +24,12 @@ Uses the Apple Silicon accelerometer (Bosch BMI286 IMU via IOKit HID) to detect 
 
 ## Install
 
-Download from the [latest release](https://github.com/taigrr/spank/releases/latest).
+Download from the [latest release](https://github.com/AmatsuZero/spank/releases/latest).
 
 Or build from source:
 
 ```bash
-go install github.com/taigrr/spank@latest
+go install github.com/AmatsuZero/spank@latest
 ```
 
 > **Note:** `go install` places the binary in `$GOBIN` (if set) or `$(go env GOPATH)/bin` (which defaults to `~/go/bin`). Copy it to a system path so `sudo spank` works. For example, with the default Go settings:
@@ -105,14 +105,14 @@ To have spank start automatically at boot, create a launchd plist. Pick your mod
 <summary>Pain mode (default)</summary>
 
 ```bash
-sudo tee /Library/LaunchDaemons/com.taigrr.spank.plist > /dev/null << 'EOF'
+sudo tee /Library/LaunchDaemons/com.AmatsuZero.spank.plist > /dev/null << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.taigrr.spank</string>
+    <string>com.AmatsuZero.spank</string>
     <key>ProgramArguments</key>
     <array>
         <string>/usr/local/bin/spank</string>
@@ -136,14 +136,14 @@ EOF
 <summary>Sexy mode</summary>
 
 ```bash
-sudo tee /Library/LaunchDaemons/com.taigrr.spank.plist > /dev/null << 'EOF'
+sudo tee /Library/LaunchDaemons/com.AmatsuZero.spank.plist > /dev/null << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.taigrr.spank</string>
+    <string>com.AmatsuZero.spank</string>
     <key>ProgramArguments</key>
     <array>
         <string>/usr/local/bin/spank</string>
@@ -168,14 +168,14 @@ EOF
 <summary>Halo mode</summary>
 
 ```bash
-sudo tee /Library/LaunchDaemons/com.taigrr.spank.plist > /dev/null << 'EOF'
+sudo tee /Library/LaunchDaemons/com.AmatsuZero.spank.plist > /dev/null << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.taigrr.spank</string>
+    <string>com.AmatsuZero.spank</string>
     <key>ProgramArguments</key>
     <array>
         <string>/usr/local/bin/spank</string>
@@ -201,7 +201,7 @@ EOF
 Load and start the service:
 
 ```bash
-sudo launchctl load /Library/LaunchDaemons/com.taigrr.spank.plist
+sudo launchctl load /Library/LaunchDaemons/com.AmatsuZero.spank.plist
 ```
 
 Since the plist lives in `/Library/LaunchDaemons` and no `UserName` key is set, launchd runs it as root — no `sudo` needed.
@@ -209,7 +209,15 @@ Since the plist lives in `/Library/LaunchDaemons` and no `UserName` key is set, 
 To stop or unload:
 
 ```bash
+sudo launchctl unload /Library/LaunchDaemons/com.AmatsuZero.spank.plist
+```
+
+If you were using the old plist name, migrate with:
+
+```bash
 sudo launchctl unload /Library/LaunchDaemons/com.taigrr.spank.plist
+sudo rm /Library/LaunchDaemons/com.taigrr.spank.plist
+sudo launchctl load /Library/LaunchDaemons/com.AmatsuZero.spank.plist
 ```
 
 ## How it works
@@ -223,7 +231,7 @@ sudo launchctl unload /Library/LaunchDaemons/com.taigrr.spank.plist
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=taigrr/spank&type=date&legend=top-left)](https://www.star-history.com/#taigrr/spank&type=date&legend=top-left)
+[![Star History Chart](https://api.star-history.com/svg?repos=AmatsuZero/spank&type=date&legend=top-left)](https://www.star-history.com/#AmatsuZero/spank&type=date&legend=top-left)
 
 ## Credits
 

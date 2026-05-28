@@ -21,9 +21,9 @@ import (
 	"github.com/charmbracelet/fang"
 	"github.com/spf13/cobra"
 	"github.com/taigrr/apple-silicon-accelerometer/detector"
-	"github.com/taigrr/spank/pkg/app"
-	"github.com/taigrr/spank/pkg/core"
-	platformmacos "github.com/taigrr/spank/pkg/platform/macos"
+	"github.com/AmatsuZero/spank/pkg/app"
+	"github.com/AmatsuZero/spank/pkg/core"
+	platformmacos "github.com/AmatsuZero/spank/pkg/platform/macos"
 )
 
 var version = "dev"

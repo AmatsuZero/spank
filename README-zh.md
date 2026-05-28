@@ -24,12 +24,12 @@
 
 ## 安装
 
-从[最新版本](https://github.com/taigrr/spank/releases/latest)下载。
+从[最新版本](https://github.com/AmatsuZero/spank/releases/latest)下载。
 
 或者从源代码构建：
 
 ```bash
-go install github.com/taigrr/spank@latest
+go install github.com/AmatsuZero/spank@latest
 ```
 
 > **注意：** `go install` 会将二进制文件放在 `$GOBIN`（如果已设置）或 `$(go env GOPATH)/bin`（默认为 `~/go/bin`）。将其复制到系统路径以便 `sudo spank` 能够工作。例如，使用默认的 Go 设置：
@@ -105,14 +105,14 @@ sudo spank --sexy --speed 0.6
 <summary>疼痛模式（默认）</summary>
 
 ```bash
-sudo tee /Library/LaunchDaemons/com.taigrr.spank.plist > /dev/null << 'EOF'
+sudo tee /Library/LaunchDaemons/com.AmatsuZero.spank.plist > /dev/null << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.taigrr.spank</string>
+    <string>com.AmatsuZero.spank</string>
     <key>ProgramArguments</key>
     <array>
         <string>/usr/local/bin/spank</string>
@@ -136,14 +136,14 @@ EOF
 <summary>性感模式</summary>
 
 ```bash
-sudo tee /Library/LaunchDaemons/com.taigrr.spank.plist > /dev/null << 'EOF'
+sudo tee /Library/LaunchDaemons/com.AmatsuZero.spank.plist > /dev/null << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.taigrr.spank</string>
+    <string>com.AmatsuZero.spank</string>
     <key>ProgramArguments</key>
     <array>
         <string>/usr/local/bin/spank</string>
@@ -168,14 +168,14 @@ EOF
 <summary>光环模式</summary>
 
 ```bash
-sudo tee /Library/LaunchDaemons/com.taigrr.spank.plist > /dev/null << 'EOF'
+sudo tee /Library/LaunchDaemons/com.AmatsuZero.spank.plist > /dev/null << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.taigrr.spank</string>
+    <string>com.AmatsuZero.spank</string>
     <key>ProgramArguments</key>
     <array>
         <string>/usr/local/bin/spank</string>
@@ -201,7 +201,7 @@ EOF
 加载并启动服务：
 
 ```bash
-sudo launchctl load /Library/LaunchDaemons/com.taigrr.spank.plist
+sudo launchctl load /Library/LaunchDaemons/com.AmatsuZero.spank.plist
 ```
 
 由于 `plist` 文件位于 `/Library/LaunchDaemons` 且未设置 `UserName` ，`launchctl` 命令会以 root 身份运行它， 所以不需要加 `sudo`。
@@ -209,7 +209,15 @@ sudo launchctl load /Library/LaunchDaemons/com.taigrr.spank.plist
 要停止或卸载：
 
 ```bash
+sudo launchctl unload /Library/LaunchDaemons/com.AmatsuZero.spank.plist
+```
+
+如果你之前使用的是旧 plist 名称，可用下面命令迁移：
+
+```bash
 sudo launchctl unload /Library/LaunchDaemons/com.taigrr.spank.plist
+sudo rm /Library/LaunchDaemons/com.taigrr.spank.plist
+sudo launchctl load /Library/LaunchDaemons/com.AmatsuZero.spank.plist
 ```
 
 ## 工作原理
@@ -223,7 +231,7 @@ sudo launchctl unload /Library/LaunchDaemons/com.taigrr.spank.plist
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=taigrr/spank&type=date&legend=top-left)](https://www.star-history.com/#taigrr/spank&type=date&legend=top-left)
+[![Star History Chart](https://api.star-history.com/svg?repos=AmatsuZero/spank&type=date&legend=top-left)](https://www.star-history.com/#AmatsuZero/spank&type=date&legend=top-left)
 
 ## 致谢
 

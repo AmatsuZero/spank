@@ -16,7 +16,7 @@ buildGoModule.override { go = go_1_26; } {
 
   meta = {
     description = "Yells 'ow!' when you slap the laptop";
-    homepage = "https://github.com/taigrr/spank";
+    homepage = "https://github.com/AmatsuZero/spank";
     license = lib.licenses.mit;
     platforms = [ "aarch64-darwin" ];
     mainProgram = "spank";
