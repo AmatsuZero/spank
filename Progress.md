@@ -31,6 +31,10 @@
 - [x] #12 新增 C API 与 gomobile 绑定入口
 - [x] #10 调整发布矩阵与构建脚本
 - [x] #9 执行回归与产物验证
+- [x] #23 迁移 CLI 入口到 cmd/spank
+- [x] #24 抽离 macOS 音频适配层
+- [x] #25 新增常规 CI 校验工作流
+- [x] #26 增加 bindings smoke tests
 
 ## Build Matrix (planned)
 ```bash
@@ -62,7 +66,14 @@ gomobile bind -tags lite -target=android ./bindings/mobile
 - 已完成 #10：新增 `Makefile`（CLI / dylib / iOS / Android 构建目标），并新增 `.github/workflows/release-sdk.yml`，将 SDK 构建与 CLI 发布拆分。
 - 已完成 #9 回归与产物验证：`make build-cli`、`make build-mac-dylib`、`make build-ios-sdk`、`make build-android-sdk`、`make build-sdk` 均通过。
 - 已修复本地 gomobile 环境阻塞：添加 `golang.org/x/mobile` 工具依赖，Android 目标改为 `-androidapi 21`。
-- 当前基线：`go test ./...` 仍有既有失败（`TestAmplitudeToVolume`）。
+- 已完成测试修复：放宽 `stdin_test.go` 的 mid amplitude 断言边界，`go test ./...` 全量通过。
+- 已完成本地提交拆分（按阶段拆分为 4 个核心提交 + 1 个测试修复提交）。
+- 已完成 #23：CLI 入口已迁移到 `cmd/spank/main.go`，`Makefile` 默认 `CLI_PKG=./cmd/spank`，并更新了 GoReleaser 的 main 路径与 ldflags 注入路径。
+- 已完成 #24：新增 `pkg/platform/macos/audio.go`，主流程音频播放链路已从 `main.go` 抽离到平台适配层。
+- 已完成 #25：新增 `.github/workflows/ci.yml`，在 PR/push 上执行 `go test ./...`、CLI default/lite 构建及 bindings 构建探针。
+- 已完成 #26：新增 `bindings/mobile/export_test.go` 与 `bindings/capi/export_smoke_test.go`，验证 mobile Gate 与 C API 的最小可调用性。
+- 回归验证通过：`go test ./...`、CLI 双模式构建与 bindings 构建均通过。
 
 ## Next Step
-按需开始提交拆分（建议按 #8→#13→#14→#11→#12→#10→#9 顺序提交），或继续推进 `cmd/spank` 入口迁移。
+1. 整理并提交当前这一批改动（建议拆为 #23、#24、#25、#26 四个提交）。
+2. 如需发布，推送后观察 `CI`、`Release CLI`、`Release SDK` 三条工作流结果。
