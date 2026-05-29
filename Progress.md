@@ -35,6 +35,7 @@
 - [x] #24 抽离 macOS 音频适配层
 - [x] #25 新增常规 CI 校验工作流
 - [x] #26 增加 bindings smoke tests
+- [x] SpankKit SPM 封装（Package.swift + Swift wrapper + 单测）
 
 ## Build Matrix (planned)
 ```bash
@@ -73,8 +74,16 @@ gomobile bind -tags lite -target=android ./bindings/mobile
 - 已完成 #25：新增 `.github/workflows/ci.yml`，在 PR/push 上执行 `go test ./...`、CLI default/lite 构建及 bindings 构建探针。
 - 已完成 #26：新增 `bindings/mobile/export_test.go` 与 `bindings/capi/export_smoke_test.go`，验证 mobile Gate 与 C API 的最小可调用性。
 - 回归验证通过：`go test ./...`、CLI 双模式构建与 bindings 构建均通过。
+- 已完成 SpankKit SPM 封装：
+  - 新增 `Package.swift`（binaryTarget 指向本地 xcframework，发布时切 url+checksum）
+  - 新增 `Sources/SpankKit/`：SpankEngine（全托管检测+播放）、SlapTracker（选曲算法移植）、AudioPlayer（AVFoundation）、SpankMode、SpankEvent
+  - 新增 `Sources/SpankKitAssets/`：从 Bundle.module 加载内置音频
+  - 新增 `Tests/SpankKitTests/`：20 个单测全部通过（SlapTracker/Engine/Assets）
+  - Makefile 新增 `sync-assets`、`build-xcframework`、`package-spm` 目标
+  - `release-sdk.yml` 追加 xcframework zip + GitHub Release 发布
+  - 资源策略：`make sync-assets` rsync 音频到 SPM target 内，`Resources/` 已加 .gitignore
 
 ## Next Step
-1. 当前改造任务已全部完成（Task Board 全部勾选）。
-2. 如需发布，推送后观察 `CI`、`Release CLI`、`Release SDK` 三条工作流结果。
-3. 如需继续演进，可选后续项：补充 iOS/Android 集成示例工程与端到端运行文档。
+1. 发布时需将 `Package.swift` 中 binaryTarget 从 `path:` 切换为 `url:` + `checksum:`。
+2. 推送后观察 `CI`、`Release CLI`、`Release SDK` 三条工作流结果。
+3. 可选后续项：补充 iOS/Android 集成示例工程与端到端运行文档。

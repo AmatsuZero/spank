@@ -6,7 +6,7 @@ on:
       - "v*"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-sdk:
@@ -32,8 +32,13 @@ jobs:
       - name: Build SDK artifacts
         run: |
           make build-mac-dylib
-          make build-ios-sdk
+          make build-xcframework
           make build-android-sdk
+
+      - name: Package xcframework for SPM
+        run: |
+          cd dist && zip -r Spank.xcframework.zip Spank.xcframework
+          echo "CHECKSUM=$(shasum -a 256 dist/Spank.xcframework.zip | awk '{print $1}')" >> $GITHUB_ENV
 
       - name: Upload SDK artifacts
         uses: actions/upload-artifact@v4
@@ -42,5 +47,20 @@ jobs:
           path: |
             dist/libspank.dylib
             dist/libspank.h
-            dist/Spank.xcframework
+            dist/Spank.xcframework.zip
             dist/spank.aar
+
+      - name: Create GitHub Release with xcframework
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/Spank.xcframework.zip
+          body: |
+            ## SPM Integration
+
+            ```swift
+            .binaryTarget(
+                name: "Spank",
+                url: "https://github.com/AmatsuZero/spank/releases/download/${{ github.ref_name }}/Spank.xcframework.zip",
+                checksum: "${{ env.CHECKSUM }}"
+            )
+            ```

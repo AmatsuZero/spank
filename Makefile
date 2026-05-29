@@ -5,7 +5,7 @@ DIST_DIR ?= dist
 # CLI entry package.
 CLI_PKG ?= ./cmd/spank
 
-.PHONY: build-cli build-cli-lite build-mac-dylib build-mac-static build-ios-sdk build-android-sdk build-sdk
+.PHONY: build-cli build-cli-lite build-mac-dylib build-mac-static build-ios-sdk build-android-sdk build-sdk build-xcframework package-spm sync-assets
 
 build-cli:
 	mkdir -p $(DIST_DIR)
@@ -31,4 +31,16 @@ build-android-sdk:
 	mkdir -p $(DIST_DIR)
 	$(GOMOBILE) bind -tags lite -target=android -androidapi 21 -o $(DIST_DIR)/spank.aar ./bindings/mobile
 
-build-sdk: build-mac-dylib build-ios-sdk build-android-sdk
+build-xcframework:
+	mkdir -p $(DIST_DIR)
+	$(GOMOBILE) bind -tags lite -target=ios,iossimulator,macos -o $(DIST_DIR)/Spank.xcframework ./bindings/mobile
+
+package-spm: build-xcframework
+	cd $(DIST_DIR) && zip -r Spank.xcframework.zip Spank.xcframework
+	shasum -a 256 $(DIST_DIR)/Spank.xcframework.zip
+
+sync-assets:
+	mkdir -p Sources/SpankKitAssets/Resources
+	rsync -a --delete audio/ Sources/SpankKitAssets/Resources/
+
+build-sdk: build-mac-dylib build-xcframework build-android-sdk
